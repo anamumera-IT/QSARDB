@@ -24,7 +24,7 @@ else:
 st.subheader("📋 Registry & Details")
 molecule_id = st.text_input("Compound Id", value="Fisetin-Ligand")
 name = st.text_input("Name *", value="")
-description = st.text_ Castro = st.text_area("Description", value="")
+description = st.text_area("Description", value="")
 smiles = st.text_input("SMILES String", value="C1=CC=C(C=C1)C2=C(C(=O)C3=CC=CC=C3O2)O")
 
 st.markdown("---")
