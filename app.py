@@ -5,36 +5,36 @@ import os
 # Page Title
 st.title("🧪 QsarDB Web Application")
 
-# --- AUTOMATIC MAVEN COMPILER ON STREAMLIT ---
+# --- FORCE COMPILE LOGIC ---
 @st.cache_resource
-def build_project_directly():
-    st.info("🔄 First time initialization: Compiling Java QSARDB project... (Please wait 1-2 minutes)")
+def force_compile():
+    st.info("🔄 Checking Java environment and building submodules... Please wait.")
     try:
-        # Streamlit server par hi project build karne ki command
-        subprocess.run(["mvn", "clean", "package", "-DskipTests"], capture_output=True, text=True)
+        # Pura clean build chalana taake modules target folders banayein
+        subprocess.run(["mvn", "clean", "install", "-DskipTests"], capture_output=True, text=True)
         return True
     except Exception as e:
-        st.error(f"Maven error: {str(e)}")
+        st.error(f"Compilation trigger failed: {str(e)}")
         return False
 
-# Build trigger karna
-build_project_directly()
+force_compile()
 
-# Pure project se automatic built jar file dhoondna
-def find_jar():
+# --- UNIVERSAL SCANNER ---
+def find_compiled_artifact():
+    # Pura workspace scan karna submodules (cargo, model, storage, query) k andar
     for root, dirs, files in os.walk("."):
         for file in files:
             if file.endswith(".jar") and "original" not in file.lower():
-                if "target" in root: # target folder ke andar se dhoondna
-                    return os.path.join(root, file)
+                # QSARDB ka koi bhi active component module return karna
+                return os.path.join(root, file)
     return None
 
-jar_path = find_jar()
+jar_path = find_compiled_artifact()
 
 if jar_path:
     st.success(f"✅ Backend Connected: {os.path.basename(jar_path)}")
 else:
-    st.warning("⚠️ Waiting for build to finish... Please refresh in a moment.")
+    st.warning("⚠️ Executable binary sequence initializing... Try clicking run below.")
 
 # --- SIMPLE FORM LAYOUT ---
 st.subheader("📋 Registry & Details")
@@ -47,22 +47,22 @@ st.markdown("---")
 
 # --- EXECUTE BUTTON ---
 if st.button("Run / Save Analysis"):
-    if jar_path is None:
-        st.error("Error: Compiled file still not found. Make sure 'packages.txt' is added.")
-    else:
-        st.info(f"Executing payload on backend...")
-        try:
-            result = subprocess.run(
-                ["java", "-jar", jar_path, "--id", molecule_id, "--smiles", smiles], 
-                capture_output=True, 
-                text=True
-            )
+    # Agar loop bypass ho jaye to common target coordinates fallback lagana
+    executable_path = jar_path if jar_path else "./model/target/qsardb-model-1.0.jar"
+    
+    st.info(f"Targeting active workspace: {executable_path}")
+    try:
+        result = subprocess.run(
+            ["java", "-jar", executable_path, "--id", molecule_id, "--smiles", smiles], 
+            capture_output=True, 
+            text=True
+        )
+        
+        st.subheader("🚀 Result Logs")
+        if result.stdout:
+            st.code(result.stdout)
+        if result.stderr:
+            st.code(result.stderr)
             
-            st.subheader("🚀 Result Logs")
-            if result.stdout:
-                st.code(result.stdout)
-            if result.stderr:
-                st.code(result.stderr)
-                
-        except Exception as e:
-            st.error(f"Execution failed: {str(e)}")
+    except Exception as e:
+        st.error(f"Execution failed: {str(e)}")
