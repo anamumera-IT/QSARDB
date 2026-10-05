@@ -2,43 +2,31 @@ import streamlit as st
 import subprocess
 import os
 
-# Page configuration
+# Page configurations
 st.set_page_config(page_title="QsarDB Editor", layout="wide")
 st.title("🧪 QsarDB Web Application")
 
-# --- FIXED MAVEN BUILD ON STREAMLIT ---
-@st.cache_resource
-def compile_java_project():
-    st.info("🔄 Initializing Java QSARDB components... (Please wait 1-2 minutes)")
-    try:
-        # Run clean package strictly skipping tests
-        build_result = subprocess.run(
-            ["mvn", "clean", "package", "-DskipTests"], 
-            capture_output=True, 
-            text=True
-        )
-        # return true because schemas generated successfully indicate a partial or full target build
-        return True
-    except Exception as e:
-        st.error(f"❌ Could not run Maven: {str(e)}")
-        return False
-
-build_status = compile_java_project()
-
-# Strict function to find the exact generated executable JAR inside targets
-def find_jar():
+# --- GLOBAL SCANNER FOR JAVA EXECUTABLES ---
+def find_any_valid_jar():
+    # Poore directory tree me search karna bina targets folder ki kisi hard condition k
     for root, dirs, files in os.walk("."):
         for file in files:
-            # We specifically look for the built artifacts from modules like 'model' or 'toolkit'
-            if file.endswith(".jar") and ("model" in file.lower() or "toolkit" in file.lower() or "cli" in file.lower()):
-                if "target" in root and "original" not in file.lower():
+            if file.endswith(".jar") and "original" not in file.lower():
+                # QSARDB standard components key phrases check karna
+                if any(x in file.lower() for x in ["client", "cli", "toolkit", "model", "qsardb"]):
                     return os.path.join(root, file)
     return None
 
-jar_path = find_jar()
+jar_path = find_any_valid_jar()
+
+# Debug component for visual validation
+if jar_path is not None:
+    st.sidebar.success(f"Backend Active: {os.path.basename(jar_path)}")
+else:
+    st.sidebar.error("Backend Alert: Looking for JAR file...")
 
 # --- DESIGNED INTERFACE LAYOUT (Asal Desktop App ki tarah) ---
-col1, col2 = st.columns([1, 2])
+col1, col2 = st.columns()
 
 with col1:
     st.subheader("📋 Registry")
@@ -62,23 +50,24 @@ with col2:
     st.subheader("🚀 Execute QSAR Action")
     
     if st.button("Run / Save Analysis"):
-        if jar_path is None:
-            st.error("Error: Compiled Java `.jar` file nahi mili. Please check if your repository has completed the action build or contains sub-modules.")
-        else:
-            st.info(f"Using executed backend file: {jar_path}")
-            try:
-                # Passing standard QSARDB runtime parameters
-                result = subprocess.run(
-                    ["java", "-jar", jar_path, "--id", molecule_id, "--smiles", smiles], 
-                    capture_output=True, 
-                    text=True
-                )
-                
-                if result.returncode == 0:
-                    st.success("Java Backend Executed Successfully!")
-                    st.code(result.stdout)
-                else:
-                    st.warning("Java CLI Output:")
-                    st.code(result.stdout if result.stdout else result.stderr)
-            except Exception as e:
-                st.error(f"Execution failed: {str(e)}")
+        # Agar memory space me system path compile nahi mila to direct build target apply karna
+        executable_path = jar_path if jar_path else "./client/target/qsardb-client-1.0.jar"
+        
+        st.info(f"Executing payload on: {executable_path}")
+        try:
+            # Passing default terminal parameters for java execution environment
+            result = subprocess.run(
+                ["java", "-jar", executable_path, "--id", molecule_id, "--smiles", smiles], 
+                capture_output=True, 
+                text=True
+            )
+            
+            if result.returncode == 0:
+                st.success("Java Backend Executed Successfully!")
+                st.code(result.stdout)
+            else:
+                st.warning("Java Process Response:")
+                # Display output logs or standard terminal standard errors
+                st.code(result.stdout if result.stdout else result.stderr)
+        except Exception as e:
+            st.error(f"Execution failed: {str(e)}")
