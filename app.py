@@ -5,20 +5,36 @@ import os
 # Page Title
 st.title("🧪 QsarDB Web Application")
 
-# --- JAR FILE FINDER ---
+# --- AUTOMATIC MAVEN COMPILER ON STREAMLIT ---
+@st.cache_resource
+def build_project_directly():
+    st.info("🔄 First time initialization: Compiling Java QSARDB project... (Please wait 1-2 minutes)")
+    try:
+        # Streamlit server par hi project build karne ki command
+        subprocess.run(["mvn", "clean", "package", "-DskipTests"], capture_output=True, text=True)
+        return True
+    except Exception as e:
+        st.error(f"Maven error: {str(e)}")
+        return False
+
+# Build trigger karna
+build_project_directly()
+
+# Pure project se automatic built jar file dhoondna
 def find_jar():
     for root, dirs, files in os.walk("."):
         for file in files:
             if file.endswith(".jar") and "original" not in file.lower():
-                return os.path.join(root, file)
+                if "target" in root: # target folder ke andar se dhoondna
+                    return os.path.join(root, file)
     return None
 
 jar_path = find_jar()
 
 if jar_path:
-    st.success(f"Backend Active: {os.path.basename(jar_path)}")
+    st.success(f"✅ Backend Connected: {os.path.basename(jar_path)}")
 else:
-    st.warning("Looking for JAR file... System template active.")
+    st.warning("⚠️ Waiting for build to finish... Please refresh in a moment.")
 
 # --- SIMPLE FORM LAYOUT ---
 st.subheader("📋 Registry & Details")
@@ -31,22 +47,22 @@ st.markdown("---")
 
 # --- EXECUTE BUTTON ---
 if st.button("Run / Save Analysis"):
-    # Agar automatic jar nahi mili to default hardcoded path use karein
-    executable_path = jar_path if jar_path else "./model/target/qsardb-model.jar"
-    
-    st.info(f"Executing: {executable_path}")
-    try:
-        result = subprocess.run(
-            ["java", "-jar", executable_path, "--id", molecule_id, "--smiles", smiles], 
-            capture_output=True, 
-            text=True
-        )
-        
-        st.subheader("🚀 Result Logs")
-        if result.stdout:
-            st.code(result.stdout)
-        if result.stderr:
-            st.code(result.stderr)
+    if jar_path is None:
+        st.error("Error: Compiled file still not found. Make sure 'packages.txt' is added.")
+    else:
+        st.info(f"Executing payload on backend...")
+        try:
+            result = subprocess.run(
+                ["java", "-jar", jar_path, "--id", molecule_id, "--smiles", smiles], 
+                capture_output=True, 
+                text=True
+            )
             
-    except Exception as e:
-        st.error(f"Execution failed: {str(e)}")
+            st.subheader("🚀 Result Logs")
+            if result.stdout:
+                st.code(result.stdout)
+            if result.stderr:
+                st.code(result.stderr)
+                
+        except Exception as e:
+            st.error(f"Execution failed: {str(e)}")
