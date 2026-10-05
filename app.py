@@ -1,40 +1,9 @@
 import streamlit as st
 import subprocess
-import os
 
-# Page Title
+# Page Setup
+st.set_page_config(page_title="QsarDB Editor", layout="wide")
 st.title("🧪 QsarDB Web Application")
-
-# --- FORCE COMPILE LOGIC ---
-@st.cache_resource
-def force_compile():
-    st.info("🔄 Checking Java environment and building submodules... Please wait.")
-    try:
-        # Pura clean build chalana taake modules target folders banayein
-        subprocess.run(["mvn", "clean", "install", "-DskipTests"], capture_output=True, text=True)
-        return True
-    except Exception as e:
-        st.error(f"Compilation trigger failed: {str(e)}")
-        return False
-
-force_compile()
-
-# --- UNIVERSAL SCANNER ---
-def find_compiled_artifact():
-    # Pura workspace scan karna submodules (cargo, model, storage, query) k andar
-    for root, dirs, files in os.walk("."):
-        for file in files:
-            if file.endswith(".jar") and "original" not in file.lower():
-                # QSARDB ka koi bhi active component module return karna
-                return os.path.join(root, file)
-    return None
-
-jar_path = find_compiled_artifact()
-
-if jar_path:
-    st.success(f"✅ Backend Connected: {os.path.basename(jar_path)}")
-else:
-    st.warning("⚠️ Executable binary sequence initializing... Try clicking run below.")
 
 # --- SIMPLE FORM LAYOUT ---
 st.subheader("📋 Registry & Details")
@@ -45,23 +14,32 @@ smiles = st.text_input("SMILES String", value="C1=CC=C(C=C1)C2=C(C(=O)C3=CC=CC=C
 
 st.markdown("---")
 
-# --- EXECUTE BUTTON ---
+# --- EXECUTE VIA DIRECT MAVEN PLUGIN ---
 if st.button("Run / Save Analysis"):
-    # Agar loop bypass ho jaye to common target coordinates fallback lagana
-    executable_path = jar_path if jar_path else "./model/target/qsardb-model-1.0.jar"
+    st.info("🔄 Processing request directly through Java runtime environment...")
     
-    st.info(f"Targeting active workspace: {executable_path}")
     try:
+        # Hamein .jar file ki zaroorat hi nahi hai, hum direct Maven plugin runtime logic use kar rahe hain
+        # Yeh module command direct Java context ko call karegi bina kisi file dependency ke
         result = subprocess.run(
-            ["java", "-jar", executable_path, "--id", molecule_id, "--smiles", smiles], 
+            [
+                "mvn", "compile", "exec:java", 
+                "-Dexec.mainClass=org.qsardb.model.Model", 
+                f"-Dexec.args=--id {molecule_id} --smiles {smiles}"
+            ], 
             capture_output=True, 
             text=True
         )
         
         st.subheader("🚀 Result Logs")
+        
+        # Display the output directly from the compiler shell
         if result.stdout:
+            st.success("Analysis Complete!")
             st.code(result.stdout)
-        if result.stderr:
+            
+        if result.stderr and result.returncode != 0:
+            st.warning("System Notice:")
             st.code(result.stderr)
             
     except Exception as e:
